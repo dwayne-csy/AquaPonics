@@ -1,0 +1,18 @@
+{
+  "name": "esp32-sensor-server",
+  "version": "2.0.0",
+  "description": "ESP32 Sensor Data Server for JavaScript/Node.js",
+  "main": "sensor_server.js",
+  "scripts": {
+    "start": "node sensor_server.js",
+    "dev": "nodemon sensor_server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "serialport": "^12.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
