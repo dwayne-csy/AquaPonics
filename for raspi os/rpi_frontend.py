@@ -144,7 +144,6 @@ def generate_frames():
                 tds = current_sensors.get('tds', 0)
                 light = current_sensors.get('light', 0)
                 mq135 = current_sensors.get('mq135', 0)
-                temp = current_sensors.get('temperature', 0)
                 ph_status = current_sensors.get('ph_status', 'NEUTRAL')
                 float_state = current_sensors.get('float_state', 'UNKNOWN')
                 data_count = current_sensors.get('data_count', 0)
@@ -153,7 +152,7 @@ def generate_frames():
                            cv2.FONT_HERSHEY_SIMPLEX, 0.4, (100, 200, 255), 1)
                 cv2.putText(annotated_frame, f"pH: {ph:.2f} ({ph_status})  TDS: {tds}ppm", (10, 130), 
                            cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 100), 1)
-                cv2.putText(annotated_frame, f"Light: {light}lx  MQ135: {mq135}  Temp: {temp:.1f}C", (10, 150), 
+                cv2.putText(annotated_frame, f"Light: {light}lx  MQ135: {mq135}", (10, 150), 
                            cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 100), 1)
                 cv2.putText(annotated_frame, f"Float: {float_state}  Data: {data_count}", (10, 170), 
                            cv2.FONT_HERSHEY_SIMPLEX, 0.3, (200, 200, 200), 1)
@@ -209,171 +208,576 @@ def index():
 # ==================== HTML TEMPLATE ====================
 HTML_TEMPLATE = """
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>AquaPonics - Fish Detection</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AquaPonics - Smart Fish Monitoring</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
         body {
-            background: #0a2f2a;
-            font-family: Arial, sans-serif;
-            color: #fff;
+            background: linear-gradient(135deg, #0c1a1a 0%, #1a3a3a 50%, #0c1a1a 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #e0e0e0;
             padding: 20px;
+            min-height: 100vh;
         }
-        .container { max-width: 1400px; margin: 0 auto; }
-        h1 { color: #2ecc71; text-align: center; margin-bottom: 20px; }
-        .dashboard { display: flex; gap: 20px; flex-wrap: wrap; }
-        .panel {
-            background: rgba(0,0,0,0.5);
-            border-radius: 15px;
-            padding: 20px;
-            border: 1px solid rgba(46,204,113,0.3);
-            flex: 1;
-            min-width: 200px;
+        
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
         }
-        .panel-wide { flex: 3; min-width: 500px; }
-        .panel-title {
+        
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, rgba(0, 40, 40, 0.9), rgba(0, 60, 60, 0.9));
+            border-radius: 20px;
+            padding: 25px 35px;
+            margin-bottom: 25px;
+            border: 1px solid rgba(46, 204, 113, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .header-left h1 {
             color: #2ecc71;
-            border-bottom: 2px solid #2ecc71;
-            padding-bottom: 10px;
-            margin-bottom: 20px;
+            font-size: 2rem;
+            font-weight: 700;
+            letter-spacing: 1px;
         }
-        .camera-container {
-            background: #000;
-            border-radius: 10px;
-            overflow: hidden;
+        
+        .header-left h1 i {
+            margin-right: 12px;
+            color: #2ecc71;
         }
-        .camera-container img { width: 100%; display: block; }
+        
+        .header-badge {
+            background: rgba(46, 204, 113, 0.15);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            border: 1px solid rgba(46, 204, 113, 0.3);
+        }
+        
+        .header-badge i {
+            color: #2ecc71;
+            margin-right: 6px;
+        }
+        
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            background: rgba(0, 0, 0, 0.3);
+        }
+        
+        .status-indicator .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        
+        .dot-online {
+            background: #2ecc71;
+            animation: pulse 1.5s infinite;
+        }
+        
+        .dot-offline {
+            background: #e74c3c;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.2); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        
+        .status-text {
+            color: #b0b0b0;
+        }
+        
+        .status-text .online {
+            color: #2ecc71;
+        }
+        
+        .status-text .offline {
+            color: #e74c3c;
+        }
+        
+        /* Dashboard Grid */
+        .dashboard {
+            display: grid;
+            grid-template-columns: 280px 1fr 300px;
+            gap: 20px;
+        }
+        
+        @media (max-width: 1200px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        /* Panels */
+        .panel {
+            background: rgba(0, 30, 30, 0.85);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 22px;
+            border: 1px solid rgba(46, 204, 113, 0.15);
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+            transition: border-color 0.3s ease;
+        }
+        
+        .panel:hover {
+            border-color: rgba(46, 204, 113, 0.3);
+        }
+        
+        .panel-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #2ecc71;
+            border-bottom: 2px solid rgba(46, 204, 113, 0.2);
+            padding-bottom: 12px;
+            margin-bottom: 18px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .panel-title i {
+            font-size: 1.2rem;
+        }
+        
+        /* Fish Counter */
         .fish-item {
             display: flex;
             justify-content: space-between;
-            padding: 10px 0;
-            border-bottom: 1px solid rgba(46,204,113,0.2);
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(46, 204, 113, 0.08);
         }
+        
+        .fish-item:last-child {
+            border-bottom: none;
+        }
+        
+        .fish-name {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #c0d0d0;
+        }
+        
+        .fish-name i {
+            font-size: 1.2rem;
+        }
+        
+        .fish-color-guppy { color: #2ecc71; }
+        .fish-color-molly { color: #3498db; }
+        .fish-color-platy { color: #f1c40f; }
+        
         .fish-count {
-            font-size: 1.5rem;
+            font-size: 1.4rem;
+            font-weight: 700;
             color: #2ecc71;
-        }
-        .total-fish {
-            margin-top: 15px;
-            padding: 15px;
-            background: #2ecc71;
-            border-radius: 12px;
+            background: rgba(46, 204, 113, 0.1);
+            padding: 2px 16px;
+            border-radius: 20px;
+            min-width: 40px;
             text-align: center;
         }
-        .total-fish .fish-count {
-            font-size: 2.5rem;
-            color: #fff;
+        
+        .total-fish {
+            margin-top: 16px;
+            padding: 16px;
+            background: linear-gradient(135deg, rgba(46, 204, 113, 0.2), rgba(46, 204, 113, 0.05));
+            border-radius: 12px;
+            border: 1px solid rgba(46, 204, 113, 0.2);
+            text-align: center;
         }
+        
+        .total-fish .label {
+            font-size: 0.9rem;
+            color: #a0b0b0;
+        }
+        
+        .total-fish .count {
+            font-size: 2.8rem;
+            font-weight: 800;
+            color: #2ecc71;
+            display: block;
+            margin-top: 4px;
+        }
+        
+        /* Camera */
+        .camera-container {
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .camera-container img {
+            width: 100%;
+            display: block;
+        }
+        
+        .camera-overlay {
+            position: absolute;
+            bottom: 12px;
+            left: 12px;
+            right: 12px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.7rem;
+            color: rgba(255, 255, 255, 0.6);
+            background: rgba(0, 0, 0, 0.5);
+            padding: 6px 12px;
+            border-radius: 8px;
+            backdrop-filter: blur(4px);
+        }
+        
+        /* Sensors */
         .sensor-item {
             display: flex;
             justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid rgba(46,204,113,0.15);
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(46, 204, 113, 0.06);
         }
-        .sensor-value { color: #2ecc71; font-weight: bold; }
-        .status-dot {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            background: #2ecc71;
-            border-radius: 50%;
-            animation: pulse 1s infinite;
-            margin-right: 8px;
+        
+        .sensor-item:last-child {
+            border-bottom: none;
         }
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
+        
+        .sensor-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #b0c0c0;
+            font-size: 0.9rem;
         }
-        .status-disconnected .status-dot { background: #e74c3c; }
-        .ph-neutral { color: #2ecc71; }
-        .ph-acidic { color: #e74c3c; }
-        .ph-alkaline { color: #f39c12; }
-        .status-text {
-            font-size: 0.8rem;
-            padding: 2px 8px;
+        
+        .sensor-label i {
+            width: 20px;
+            color: #2ecc71;
+        }
+        
+        .sensor-value {
+            font-weight: 600;
+            color: #e0e0e0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .sensor-value .unit {
+            font-weight: 400;
+            color: #808080;
+            font-size: 0.75rem;
+        }
+        
+        .sensor-badge {
+            font-size: 0.65rem;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-weight: 600;
+        }
+        
+        .badge-neutral {
+            background: rgba(46, 204, 113, 0.2);
+            color: #2ecc71;
+        }
+        
+        .badge-acidic {
+            background: rgba(231, 76, 60, 0.2);
+            color: #e74c3c;
+        }
+        
+        .badge-alkaline {
+            background: rgba(241, 196, 15, 0.2);
+            color: #f1c40f;
+        }
+        
+        .sensor-item.mq135-highlight {
+            background: rgba(46, 204, 113, 0.05);
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin: 4px 0;
+        }
+        
+        /* Float State */
+        .float-state {
+            font-weight: 600;
+        }
+        
+        .float-ok {
+            color: #2ecc71;
+        }
+        
+        .float-low {
+            color: #e74c3c;
+        }
+        
+        .float-unknown {
+            color: #f39c12;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+            
+            .header-right {
+                width: 100%;
+                justify-content: flex-start;
+            }
+            
+            .panel {
+                padding: 16px;
+            }
+        }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
             border-radius: 10px;
         }
-        .status-connected { color: #2ecc71; }
-        .status-disconnected { color: #e74c3c; }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #2ecc71;
+            border-radius: 10px;
+        }
+        
+        /* Glow effect for important values */
+        .glow-text {
+            text-shadow: 0 0 20px rgba(46, 204, 113, 0.3);
+        }
+        
+        /* ML Status indicator in camera */
+        .ml-indicator {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            color: #2ecc71;
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(46, 204, 113, 0.2);
+        }
+        
+        .ml-indicator i {
+            margin-right: 4px;
+        }
+        
+        .ml-indicator.offline {
+            color: #e74c3c;
+            border-color: rgba(231, 76, 60, 0.3);
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🐟 AquaPonics</h1>
-        <p style="text-align:center;color:#888;margin-bottom:20px;">
-            Windows ML: {{ windows_ip }}:5000 | Windows Sensors: {{ windows_ip }}:5001
-            <span id="statusText" class="status-text status-connected">● Connected</span>
-        </p>
+        <!-- Header -->
+        <div class="header">
+            <div class="header-left">
+                <h1><i class="fas fa-fish"></i> AquaPonics</h1>
+                <span class="header-badge">
+                    <i class="fas fa-microchip"></i> v2.0
+                </span>
+            </div>
+            <div class="header-right">
+                <div class="status-indicator">
+                    <span class="dot dot-online" id="statusDot"></span>
+                    <span class="status-text">
+                        <span id="statusLabel">Connected</span>
+                    </span>
+                </div>
+                <div class="status-indicator" style="font-size:0.75rem; color:#888;">
+                    <i class="fas fa-server"></i>
+                    <span id="serverInfo">{{ windows_ip }}</span>
+                </div>
+            </div>
+        </div>
         
+        <!-- Dashboard -->
         <div class="dashboard">
+            <!-- Left Panel - Fish Counter -->
             <div class="panel">
-                <div class="panel-title">🐠 Fish Counter</div>
+                <div class="panel-title">
+                    <i class="fas fa-chart-simple"></i> Fish Counter
+                </div>
+                
                 <div class="fish-item">
-                    <span>🐠 Guppy</span>
+                    <span class="fish-name">
+                        <i class="fas fa-fish fish-color-guppy"></i> Guppy
+                    </span>
                     <span class="fish-count" id="guppy">0</span>
                 </div>
+                
                 <div class="fish-item">
-                    <span>🐟 Molly</span>
+                    <span class="fish-name">
+                        <i class="fas fa-fish fish-color-molly"></i> Molly
+                    </span>
                     <span class="fish-count" id="molly">0</span>
                 </div>
+                
                 <div class="fish-item">
-                    <span>🐡 Platy</span>
+                    <span class="fish-name">
+                        <i class="fas fa-fish fish-color-platy"></i> Platy
+                    </span>
                     <span class="fish-count" id="platy">0</span>
                 </div>
+                
                 <div class="total-fish">
-                    <div>🐟 TOTAL FISH</div>
-                    <div class="fish-count" id="total">0</div>
+                    <span class="label"><i class="fas fa-flag-checkered"></i> TOTAL FISH</span>
+                    <span class="count" id="total">0</span>
                 </div>
             </div>
             
-            <div class="panel panel-wide">
-                <div class="panel-title">📹 Live Feed</div>
-                <div class="camera-container">
-                    <img id="cameraFeed" src="/stream.mjpg" alt="Live Feed">
-                </div>
-            </div>
-            
+            <!-- Center Panel - Camera Feed -->
             <div class="panel">
-                <div class="panel-title">💧 Sensors (ESP32)</div>
-                <div class="sensor-item">
-                    <span>📏 pH</span>
-                    <span class="sensor-value"><span id="ph">0.00</span> <span id="phStatus">NEUTRAL</span></span>
+                <div class="panel-title">
+                    <i class="fas fa-video"></i> Live Feed
                 </div>
-                <div class="sensor-item">
-                    <span>💧 TDS</span>
-                    <span class="sensor-value"><span id="tds">0</span> ppm</span>
+                <div class="camera-container">
+                    <img id="cameraFeed" src="/stream.mjpg" alt="Live Camera Feed">
+                    <div class="ml-indicator" id="mlIndicator">
+                        <i class="fas fa-brain"></i> <span id="mlStatusText">Active</span>
+                    </div>
+                    <div class="camera-overlay">
+                        <span><i class="fas fa-circle" style="color:#2ecc71; font-size:8px;"></i> REC</span>
+                        <span><i class="fas fa-clock"></i> <span id="timeDisplay">--:--:--</span></span>
+                    </div>
                 </div>
-                <div class="sensor-item">
-                    <span>🌡️ Temp</span>
-                    <span class="sensor-value"><span id="temp">0.0</span> °C</span>
+            </div>
+            
+            <!-- Right Panel - Sensors -->
+            <div class="panel">
+                <div class="panel-title">
+                    <i class="fas fa-microchip"></i> ESP32 Sensors
                 </div>
+                
+                <!-- pH -->
                 <div class="sensor-item">
-                    <span>💡 Light</span>
-                    <span class="sensor-value"><span id="light">0</span> lux</span>
+                    <span class="sensor-label">
+                        <i class="fas fa-vial"></i> pH Level
+                    </span>
+                    <span class="sensor-value">
+                        <span id="ph">0.00</span>
+                        <span class="unit">pH</span>
+                        <span class="sensor-badge badge-neutral" id="phStatus">NEUTRAL</span>
+                    </span>
                 </div>
-                <div class="sensor-item" style="background:rgba(46,204,113,0.05);padding:10px;border-radius:5px;">
-                    <span>💨 MQ135</span>
-                    <span class="sensor-value"><span id="mq135">0</span> ADC</span>
-                </div>
+                
+                <!-- TDS -->
                 <div class="sensor-item">
-                    <span>💧 Float</span>
-                    <span class="sensor-value" id="float">UNKNOWN</span>
+                    <span class="sensor-label">
+                        <i class="fas fa-droplet"></i> TDS
+                    </span>
+                    <span class="sensor-value">
+                        <span id="tds">0</span>
+                        <span class="unit">ppm</span>
+                    </span>
                 </div>
+                
+                <!-- Light -->
                 <div class="sensor-item">
-                    <span>📊 Data</span>
-                    <span class="sensor-value" id="dataCount">0</span>
+                    <span class="sensor-label">
+                        <i class="fas fa-sun"></i> Light
+                    </span>
+                    <span class="sensor-value">
+                        <span id="light">0</span>
+                        <span class="unit">lux</span>
+                    </span>
                 </div>
+                
+                <!-- MQ135 - Highlighted -->
+                <div class="sensor-item mq135-highlight">
+                    <span class="sensor-label">
+                        <i class="fas fa-wind"></i> Air Quality
+                    </span>
+                    <span class="sensor-value">
+                        <span id="mq135">0</span>
+                        <span class="unit">ADC</span>
+                        <span class="sensor-badge badge-neutral" id="mq135Status">GOOD</span>
+                    </span>
+                </div>
+                
+                <!-- Float Switch -->
                 <div class="sensor-item">
-                    <span>🕐 Update</span>
-                    <span class="sensor-value" id="lastUpdate">Never</span>
+                    <span class="sensor-label">
+                        <i class="fas fa-water"></i> Float Switch
+                    </span>
+                    <span class="sensor-value float-unknown" id="floatState">UNKNOWN</span>
+                </div>
+                
+                <!-- Data Count -->
+                <div class="sensor-item">
+                    <span class="sensor-label">
+                        <i class="fas fa-database"></i> Data Packets
+                    </span>
+                    <span class="sensor-value">
+                        <span id="dataCount">0</span>
+                    </span>
+                </div>
+                
+                <!-- Last Update -->
+                <div class="sensor-item" style="border-bottom: none; padding-bottom: 0;">
+                    <span class="sensor-label">
+                        <i class="fas fa-clock"></i> Last Update
+                    </span>
+                    <span class="sensor-value" style="font-weight:400; color:#888; font-size:0.85rem;" id="lastUpdate">Never</span>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
+        // ==================== TIME DISPLAY ====================
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('timeDisplay').textContent = now.toLocaleTimeString();
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+
+        // ==================== FETCH FUNCTIONS ====================
         async function fetchCounts() {
             try {
                 const res = await fetch('/api/counts');
@@ -382,7 +786,9 @@ HTML_TEMPLATE = """
                 document.getElementById('molly').textContent = data.molly || 0;
                 document.getElementById('platy').textContent = data.platy || 0;
                 document.getElementById('total').textContent = data.total_fish || 0;
-            } catch(e) { console.error(e); }
+            } catch(e) {
+                console.error('Counts error:', e);
+            }
         }
         
         async function fetchSensors() {
@@ -390,54 +796,102 @@ HTML_TEMPLATE = """
                 const res = await fetch('/api/sensors');
                 const data = await res.json();
                 
+                // Update sensor values
                 document.getElementById('ph').textContent = (data.ph || 0).toFixed(2);
                 document.getElementById('tds').textContent = data.tds || 0;
-                document.getElementById('temp').textContent = (data.temperature || 0).toFixed(1);
                 document.getElementById('light').textContent = data.light || 0;
                 document.getElementById('mq135').textContent = data.mq135 || 0;
-                document.getElementById('float').textContent = data.float_state || 'UNKNOWN';
                 document.getElementById('dataCount').textContent = data.data_count || 0;
                 
-                // Last update time
+                // Float State
+                const floatEl = document.getElementById('floatState');
+                const floatState = data.float_state || 'UNKNOWN';
+                floatEl.textContent = floatState;
+                floatEl.className = 'sensor-value float-' + floatState.toLowerCase();
+                
+                // Last Update
                 if (data.last_update) {
                     const date = new Date(data.last_update);
                     document.getElementById('lastUpdate').textContent = date.toLocaleTimeString();
                 }
                 
                 // pH Status
-                const status = document.getElementById('phStatus');
                 const ph = data.ph || 0;
-                if (ph < 6.5) { 
-                    status.textContent = 'ACIDIC'; 
-                    status.style.color = '#e74c3c'; 
-                } else if (ph > 7.5) { 
-                    status.textContent = 'ALKALINE'; 
-                    status.style.color = '#f39c12'; 
-                } else { 
-                    status.textContent = 'NEUTRAL'; 
-                    status.style.color = '#2ecc71'; 
+                const phStatus = document.getElementById('phStatus');
+                if (ph < 6.5) {
+                    phStatus.textContent = 'ACIDIC';
+                    phStatus.className = 'sensor-badge badge-acidic';
+                } else if (ph > 7.5) {
+                    phStatus.textContent = 'ALKALINE';
+                    phStatus.className = 'sensor-badge badge-alkaline';
+                } else {
+                    phStatus.textContent = 'NEUTRAL';
+                    phStatus.className = 'sensor-badge badge-neutral';
                 }
                 
-                // Update status text
-                const statusText = document.getElementById('statusText');
-                if (data.sensor_connected) {
-                    statusText.textContent = '● ESP32 Connected';
-                    statusText.className = 'status-text status-connected';
+                // MQ135 Status
+                const mq135 = parseInt(data.mq135 || 0);
+                const mq135Status = document.getElementById('mq135Status');
+                if (mq135 < 80) {
+                    mq135Status.textContent = 'GOOD';
+                    mq135Status.className = 'sensor-badge badge-neutral';
+                } else if (mq135 < 150) {
+                    mq135Status.textContent = 'MODERATE';
+                    mq135Status.className = 'sensor-badge badge-alkaline';
                 } else {
-                    statusText.textContent = '● ESP32 Disconnected';
-                    statusText.className = 'status-text status-disconnected';
+                    mq135Status.textContent = 'POOR';
+                    mq135Status.className = 'sensor-badge badge-acidic';
                 }
-            } catch(e) { 
-                console.error(e);
-                document.getElementById('statusText').textContent = '● Server Error';
-                document.getElementById('statusText').className = 'status-text status-disconnected';
+                
+                // Overall Status
+                const dot = document.getElementById('statusDot');
+                const label = document.getElementById('statusLabel');
+                if (data.sensor_connected) {
+                    dot.className = 'dot dot-online';
+                    label.textContent = 'ESP32 Connected';
+                    label.className = 'online';
+                } else {
+                    dot.className = 'dot dot-offline';
+                    label.textContent = 'ESP32 Disconnected';
+                    label.className = 'offline';
+                }
+                
+            } catch(e) {
+                console.error('Sensor error:', e);
+                document.getElementById('statusDot').className = 'dot dot-offline';
+                document.getElementById('statusLabel').textContent = 'Server Error';
+                document.getElementById('statusLabel').className = 'offline';
             }
         }
         
+        async function checkMLStatus() {
+            try {
+                const res = await fetch('/api/status');
+                const data = await res.json();
+                const indicator = document.getElementById('mlIndicator');
+                const text = document.getElementById('mlStatusText');
+                if (data.ml_server === 'Connected') {
+                    indicator.className = 'ml-indicator';
+                    text.textContent = 'Active';
+                } else {
+                    indicator.className = 'ml-indicator offline';
+                    text.textContent = 'Offline';
+                }
+            } catch(e) {
+                document.getElementById('mlIndicator').className = 'ml-indicator offline';
+                document.getElementById('mlStatusText').textContent = 'Error';
+            }
+        }
+        
+        // ==================== INTERVALS ====================
         setInterval(fetchCounts, 1000);
         setInterval(fetchSensors, 1000);
+        setInterval(checkMLStatus, 5000);
+        
+        // ==================== INITIAL FETCH ====================
         fetchCounts();
         fetchSensors();
+        checkMLStatus();
     </script>
 </body>
 </html>
